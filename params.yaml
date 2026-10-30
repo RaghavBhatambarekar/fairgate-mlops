@@ -1,0 +1,24 @@
+data:
+  raw_path: data/raw/application_train.csv   # Kaggle Home Credit file (or the synthetic sample)
+  test_size: 0.25
+  seed: 42
+
+train:
+  n_estimators: 400
+  learning_rate: 0.05
+  num_leaves: 31
+  target_reject_rate: 0.15     # bank rejects the riskiest 15% of applicants
+
+gate:
+  sensitive: [gender, age_band]
+  max_dp_diff: 0.05            # demographic parity: max gap in rejection rate between groups
+  max_eo_diff: 0.10            # equal opportunity: max gap in true positive rate (defaulters caught)
+  min_auc: 0.70                # performance floor
+  mitigation_constraint: demographic_parity
+
+monitor:
+  n_batches: 6
+  batch_size: 5000
+  psi_limit: 0.2
+  fair_limit: 0.08             # wider than the gate limit: small live batches are noisier
+
