@@ -1,0 +1,17 @@
+numpy
+pandas
+scikit-learn
+pyyaml
+pyarrow
+joblib
+lightgbm
+fairlearn
+mlflow
+matplotlib
+shap
+fastapi
+uvicorn
+pydantic>=2
+gradio
+httpx
+pytest
