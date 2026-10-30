@@ -1,111 +1,162 @@
 # FairGate — Fairness-Gated MLOps for Credit Default Prediction
 
-[![Project](https://img.shields.io/badge/project-MLOps-blue)](#) [![Model](https://img.shields.io/badge/model-LightGBM-brightgreen)](#) [![Fairness](https://img.shields.io/badge/fairness-Fairlearn-purple)](#) [![Status](https://img.shields.io/badge/status-academic%20prototype-orange)](#)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](#) [![Model](https://img.shields.io/badge/Model-LightGBM-brightgreen)](#) [![Fairness](https://img.shields.io/badge/Fairness-Fairlearn-purple)](#) [![Status](https://img.shields.io/badge/Status-Academic%20Prototype-orange)](#)
 
-**FairGate** is an academic MLOps project exploring how fairness checks can become a release requirement for a credit-default prediction system. It combines model training and tracking with fairness evaluation, post-processing mitigation, explainable predictions, serving, and drift monitoring.
+**FairGate** is an end-to-end MLOps demonstration for credit-default prediction. A candidate model must pass both predictive-performance and group-fairness checks before it can be registered and promoted. The project also demonstrates post-processing mitigation, explainable predictions, model tracking, and simulated data/fairness-drift monitoring.
 
-> **Important scope note:** The results presented here are from a **synthetic dataset following the Home Credit schema**, not from the full real-world Home Credit dataset. This is a prototype for learning and demonstration, not a production lending system or a credit decision recommendation.
+> **Educational prototype only.** The default workflow generates synthetic data with a Home Credit-like schema. It is not a lending product and must not be used to approve or reject real applicants.
 
-## Why FairGate?
-
-A credit-risk model can have useful predictive performance while producing materially different outcomes across demographic groups. FairGate demonstrates a workflow in which a candidate model is evaluated against both predictive-performance and group-fairness criteria before it is promoted.
-
-## Pipeline at a glance
+## Pipeline
 
 ```mermaid
 flowchart LR
-    A[Applicant data] --> B[Validate and prepare]
-    B --> C[Train LightGBM]
-    C --> D[Fairness and AUC gate]
-    D -->|Pass| E[Register approved model]
-    D -->|Fail| F[Fairlearn ThresholdOptimizer]
-    F --> G[Re-test fairness gate]
-    G -->|Pass| E
-    G -->|Fail| H[Block release]
-    E --> I[FastAPI / Gradio serving]
-    I --> J[SHAP explanations]
-    I --> K[Production-style monitoring]
-    K -->|Drift alert| L[Retraining workflow]
+  A[Raw or synthetic data] --> B[Validate and prepare]
+  B --> C[Train LightGBM]
+  C --> D[Fairness and AUC gate]
+  D -->|Pass| E[MLflow register and promote]
+  D -->|Fail| F[Fairlearn ThresholdOptimizer]
+  F --> G[Re-test gate]
+  G -->|Pass| E
+  G -->|Fail| H[Block release]
+  E --> I[FastAPI scoring API]
+  I --> J[TreeSHAP reason codes]
+  E --> K[Simulated production monitoring]
+  K --> L[PSI and rejection-rate gap alerts]
 ```
+
+## Key capabilities
+
+- Synthetic sample-data generator; optional Home Credit competition data input.
+- Data validation, feature engineering, and stratified train/test split.
+- LightGBM classifier with a configurable risk-based rejection threshold.
+- Fairness gate using ROC-AUC, demographic-parity gap, and equal-opportunity gap.
+- Fairlearn `ThresholdOptimizer` post-processing when the initial candidate fails.
+- MLflow experiment tracking and model registry; only gate-passed bundles are promoted.
+- FastAPI endpoints for health, model metadata, scoring, gate reports, monitoring chart, and HTML report.
+- TreeSHAP-based top-three reason codes.
+- Simulated production monitoring using Population Stability Index (PSI) and group rejection-rate gaps.
+- Unit/API tests.
 
 ## Technology stack
 
-| Area | Technology | Purpose |
-|---|---|---|
-| Tabular model | LightGBM | Credit-default classification |
-| Fairness | Fairlearn | Group metrics and ThresholdOptimizer mitigation |
-| Experiment tracking / registry | MLflow | Track runs, metrics, artifacts and model versions |
-| Explainability | TreeSHAP | Return the strongest feature contributions |
-| API | FastAPI | Serve predictions over HTTP |
-| Demo UI | Gradio | Interactive applicant-scoring interface |
-| Data / metrics | PSI and rejection-rate gaps | Monitor distribution and fairness changes |
-| Packaging / workflow | Docker, GitHub Actions, DVC | Containerization, CI and data/version workflow |
+| Area | Tools |
+|---|---|
+| Model | LightGBM, scikit-learn |
+| Fairness | Fairlearn |
+| Experiment tracking / registry | MLflow |
+| Explainability | SHAP / TreeSHAP |
+| API | FastAPI, Uvicorn |
+| Demo UI | Gradio notebook demo |
+| Data and configuration | pandas, NumPy, PyYAML, PyArrow |
+| Tests | pytest |
 
-## Fairness gate
+## Repository layout
 
-The project presentation describes these release criteria:
+```text
+.
+├── app/
+│   ├── __init__.py
+│   ├── index.html
+│   └── main.py
+├── docs/
+│   ├── architecture.md
+│   ├── results-and-limitations.md
+│   └── viva-guide.md
+├── notebooks/
+│   └── FairGate_MLOps.ipynb
+├── src/
+│   ├── common.py
+│   ├── gate.py
+│   ├── make_sample_data.py
+│   ├── mitigate.py
+│   ├── monitor.py
+│   ├── predictor.py
+│   ├── prepare.py
+│   ├── register.py
+│   └── train.py
+├── tests/
+│   └── test_fairgate.py
+├── params.yaml
+├── requirements.txt
+└── run_pipeline.py
+```
 
-| Check | Metric | Threshold |
+## Run locally
+
+Python 3.10 or newer is recommended.
+
+```bash
+git clone https://github.com/RaghavBhatambarekar/fairgate-mlops.git
+cd fairgate-mlops
+
+python -m venv .venv
+# macOS / Linux:
+source .venv/bin/activate
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+
+# Generate the default synthetic sample
+python src/make_sample_data.py
+
+# Run prepare → train → gate → optional mitigation → register → monitor
+python run_pipeline.py
+```
+
+The pipeline writes local artifacts under `data/`, `models/`, `reports/`, and MLflow tracking files. These generated artifacts and datasets are excluded from Git.
+
+### Run the API
+
+After a successful pipeline run:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for interactive API documentation. The API expects a trained, gate-approved model at `models/production.joblib`.
+
+### Run tests
+
+```bash
+pytest -q
+```
+
+The API prediction test requires the pipeline to have produced the production model artifact.
+
+## Configure the gate
+
+Edit `params.yaml`:
+
+| Check | Config key | Default threshold |
 |---|---|---:|
-| Predictive performance | ROC-AUC on held-out test data | ≥ 0.70 |
-| Demographic parity | Largest group rejection-rate gap | ≤ 0.05 |
-| Equal opportunity | Largest group true-positive-rate gap | ≤ 0.10 |
+| ROC-AUC | `gate.min_auc` | `0.70` minimum |
+| Demographic parity gap | `gate.max_dp_diff` | `0.05` maximum |
+| Equal opportunity gap | `gate.max_eo_diff` | `0.10` maximum |
+| PSI drift alert | `monitor.psi_limit` | `0.20` |
+| Rejection-rate gap alert | `monitor.fair_limit` | `0.08` |
 
-A candidate that fails is not promoted directly. The workflow attempts post-processing mitigation with Fairlearn's `ThresholdOptimizer`, then evaluates the resulting decision rule again.
+The project defines prediction value `1` as **REJECT**. Demographic parity is measured here as the gap in rejection/selection rates, and equal opportunity as the gap in true-positive rates for the default class. Check label and decision semantics before changing the implementation.
 
-**Interpretation caution:** Fairness metrics represent different definitions of fairness and can conflict. Passing these configured checks does not establish that a system is universally fair, legally compliant, or appropriate for real lending decisions.
+## Data options
 
-## Reported demonstration results
+- **Default:** generated synthetic sample. It is useful for a reproducible demo but does not represent real Home Credit performance.
+- **Optional:** Home Credit Default Risk competition data. The notebook documents the Kaggle workflow. You must accept the competition rules and supply your own Kaggle API credentials. Never commit `kaggle.json`, credentials, or applicant-level data.
 
-The accompanying project presentation reports the following synthetic-data results:
+## Results and limitations
 
-| Metric | Original candidate | Mitigated model |
-|---|---:|---:|
-| Gate outcome | Blocked | Passed |
-| Demographic parity gap | 0.249 | 0.040 |
-| Equal opportunity gap | 0.414 | 0.022 |
-| ROC-AUC | 0.708 | 0.708 |
-| Under-30 rejection rate | 29.3% | 14.4% |
-| Over-50 rejection rate | 4.5% | 18.4% |
-| Overall rejection rate | 14.3% | 17.2% |
+The project presentation reports a synthetic-data demonstration in which the original candidate fails configured fairness checks and the mitigated decision rule passes while ROC-AUC remains reported as 0.708. See [reported results and limitations](docs/results-and-limitations.md) for the figures and caveats.
 
-These are the values reported in the presentation; they are not independently reproduced or validated in this repository yet. See [the results notes](docs/results-and-limitations.md).
+The mitigation uses group-specific decision rules and requires sensitive-group information at decision time. The monitoring scenario is simulated. Passing these selected metrics does not prove universal fairness, legal compliance, calibration, or suitability for lending.
 
-## Monitoring concept
-
-The presentation specifies two production-style signals:
-
-- **Fairness drift:** a group rejection-rate gap above **0.08**.
-- **Data drift:** a maximum Population Stability Index (PSI) above **0.20**.
-
-The demonstration describes fairness drift being detected at batch 3 (gap 0.097 while PSI is 0.04), before a data-drift-only threshold would react at batch 6 (PSI 0.306). These are simulated batches, not live banking traffic.
-
-## Repository contents
+## Documentation
 
 - [Architecture and workflow](docs/architecture.md)
-- [Results, assumptions and limitations](docs/results-and-limitations.md)
+- [Reported results and limitations](docs/results-and-limitations.md)
 - [Viva / code walkthrough guide](docs/viva-guide.md)
-
-> **Source-code status:** The project presentation PDF was available when this repository documentation was prepared, but the original Jupyter notebook and Python source files were not available as repository inputs. The repository therefore documents the presented design and reported results without inventing or replacing the original implementation. Add the original notebook/source files before treating this repository as a reproducible code release.
-
-## Getting started
-
-At this stage, this repository is a documentation-first project record. A verified installation command cannot be provided until the original source tree and dependency file are added.
-
-When adding the implementation, include at minimum:
-1. The original notebook or source modules.
-2. A pinned dependency file (for example, `requirements.txt`).
-3. Configuration files and safe sample data instructions.
-4. Tests and the exact command used to run them.
-5. A clear separation between synthetic demonstration data and any licensed/downloaded dataset.
-
-## Responsible-use note
-
-This project is educational. It must not be used to approve or reject real applicants. Group-aware post-processing may require sensitive group information at decision time, which can be restricted by policy or law. Any real-world use would require domain, legal, privacy, security, model-risk, and human-governance review.
+- [Contributing and reproducibility notes](CONTRIBUTING.md)
 
 ## Author
 
-**Raghav Bhatambarekar**  
-MLOps course project — Group 16  
+**Raghav Bhatambarekar** · Group 16 · MLOps course project  
 Symbiosis Institute of Technology, Pune
-
